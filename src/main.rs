@@ -1,5 +1,5 @@
 use actix_web::{
-    get, middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    get, middleware, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use bdk::bitcoin::consensus::encode::deserialize;
 use bdk::bitcoin::util::psbt::PartiallySignedTransaction;
@@ -20,8 +20,42 @@ struct ProofOfReserves {
 #[get("/")]
 async fn index() -> impl Responder {
     HttpResponse::Ok()
-        .content_type("text/json")
-        .body(r##"{"spendable":53865580}"##)
+        .content_type("text/html")
+        .body(r##"
+<form onsubmit='
+    console.log(event);
+    var obj = new Object();
+    obj.addresses = addresses.value.split(",");
+    obj.message = message.value;
+    obj.proof_psbt = proof.value;
+    var jsonString= JSON.stringify(obj);
+    console.log(jsonString);
+
+    fetch("/proof", {
+        method: "POST",
+        body: jsonString,
+        headers: {
+            "Content-type": "application/json; charset=UTF-8"
+        }
+    })
+  .then((response) => response.json())
+//  .then((json) => console.log(json));
+  .then((json) => {console.log(json); res.value = JSON.stringify(json);});
+
+
+    return false;
+  '>
+  <label for="addresses">Addresses (comma separated):</label><br>
+  <input type="text" id="addresses" name="addresses" width="100"><br>
+  <label for="message">Message:</label><br>
+  <input type="text" id="message" name="message"><br>
+  <label for="proof">Proof PSBT base64:</label><br>
+  <input type="text" id="proof" name="proof"><br>
+  <input type="submit" value="Submit"><br>
+  <label for="res">result:</label><br>
+  <textarea id="res" name="res" rows="10" cols="100" placeholder="..."></textarea>
+</form>
+        "##)
 }
 
 async fn check_proof(item: web::Json<ProofOfReserves>, req: HttpRequest) -> HttpResponse {
@@ -133,13 +167,13 @@ fn get_outpoints_for_address(
 async fn main() -> io::Result<()> {
     let address = env::var("BIND_ADDRESS").unwrap_or_else(|_err| "localhost:8087".to_string());
 
-    log::info!("Starting HTTP server at http://{}. You can choose a different address through the BIND_ADDRESS env var.", address);
+    println!("Starting HTTP server at http://{}. You can choose a different address through the BIND_ADDRESS env var.", address);
 
     HttpServer::new(|| {
         App::new()
             // enable logger
             .wrap(middleware::Logger::default())
-            .data(web::JsonConfig::default().limit(4096)) // <- limit size of the payload (global configuration)
+            //.data(web::JsonConfig::default().limit(4096)) // <- limit size of the payload (global configuration)
             .service(web::resource("/proof").route(web::post().to(check_proof)))
             .service(index)
     })
