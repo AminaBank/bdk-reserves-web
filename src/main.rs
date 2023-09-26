@@ -25,13 +25,8 @@ async fn check_proof(item: web::Json<ProofOfReserves>, req: HttpRequest) -> Http
     println!("request: {:?}", req);
     println!("model: {:?}", item);
 
-    let proof_result = handle_ext_reserves(
-        Network::Testnet,
-        &item.message,
-        &item.proof_psbt,
-        3,
-        item.addresses.clone(),
-    );
+    let proof_result =
+        handle_ext_reserves(&item.message, &item.proof_psbt, 3, item.addresses.clone());
 
     let answer = match proof_result {
         Err(e) => json!({ "error": e.to_string() }),
@@ -42,7 +37,6 @@ async fn check_proof(item: web::Json<ProofOfReserves>, req: HttpRequest) -> Http
 }
 
 fn handle_ext_reserves(
-    network: Network,
     message: &str,
     psbt: &str,
     confirmations: usize,
@@ -54,10 +48,10 @@ fn handle_ext_reserves(
     if addresses.is_empty() {
         return Err("No address provided".to_string());
     }
-    let server = if addresses[0].starts_with("2") {
-        "ssl://electrum.blockstream.info:60002" // testnet
+    let (server, network) = if addresses[0].starts_with("2") {
+        ("ssl://electrum.blockstream.info:60002", Network::Testnet)
     } else {
-        "ssl://electrum.blockstream.info:50002" // mainnet
+        ("ssl://electrum.blockstream.info:50002", Network::Bitcoin)
     };
     let client =
         Client::new(server).map_err(|e| format!("Failed to create Electrum client: {:?}", e))?;
