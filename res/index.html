@@ -1,0 +1,33 @@
+<form onsubmit='
+    console.log(event);
+    var obj = new Object();
+    obj.addresses = addresses.value.split(",");
+    obj.message = message.value;
+    obj.proof_psbt = proof.value;
+    var jsonString= JSON.stringify(obj);
+    console.log(jsonString);
+
+    fetch("/proof", {
+        method: "POST",
+        body: jsonString,
+        headers: {
+            "Content-type": "application/json; charset=UTF-8"
+        }
+    })
+  .then((response) => response.json())
+  .then((json) => {console.log(json); res.value = JSON.stringify(json);});
+
+
+    return false;
+  '>
+  <label for="addresses">Addresses (comma separated):</label><br>
+  <input type="text" id="addresses" name="addresses" width="100"><br>
+  <label for="message">Message:</label><br>
+  <input type="text" id="message" name="message"><br>
+  <label for="proof">Proof PSBT base64:</label><br>
+  <input type="text" id="proof" name="proof"><br>
+  <input type="submit" value="Submit"><br>
+  <label for="res">result:</label><br>
+  <textarea id="res" name="res" rows="10" cols="100" placeholder="..."></textarea>
+</form>
+
