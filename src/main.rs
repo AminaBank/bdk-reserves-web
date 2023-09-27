@@ -6,7 +6,7 @@ use bdk::electrum_client::{Client, ElectrumApi};
 use bdk_reserves::reserves::verify_proof;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{env, io, str::FromStr};
+use std::{env, io, net::Ipv4Addr, str::FromStr};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ProofOfReserves {
@@ -17,14 +17,19 @@ struct ProofOfReserves {
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
-    let address = env::var("BIND_ADDRESS").unwrap_or_else(|_err| match env::var("PORT") {
-        Ok(p) => format!("0.0.0.0:{}", p),
-        Err(_e) => "localhost:8087".to_string(),
-    });
+    let address = match env::var("FUNCTIONS_CUSTOMHANDLER_PORT") {
+        Ok(p) => format!("{}:{}", Ipv4Addr::LOCALHOST, p),
+        Err(_e) => env::var("BIND_ADDRESS").unwrap_or_else(|_err| match env::var("PORT") {
+            Ok(p) => format!("0.0.0.0:{}", p),
+            Err(_e) => "localhost:8087".to_string(),
+        }),
+    };
 
     println!("Starting HTTP server at http://{}.", address);
     println!("You can choose a different address through the BIND_ADDRESS env var.");
-    println!("You can choose a different port through the PORT env var.");
+    println!(
+        "You can choose a different port through the PORT or FUNCTIONS_CUSTOMHANDLER_PORT env var."
+    );
 
     HttpServer::new(|| {
         App::new()

@@ -1,0 +1,8 @@
+"customHandler": {
+  "description": {
+    "defaultExecutablePath": "bdk-reserves-web",
+    "workingDirectory": "",
+    "arguments": []
+  },
+  "enableForwardingHttpRequest": true
+}
