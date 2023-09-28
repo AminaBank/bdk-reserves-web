@@ -20,6 +20,18 @@ jobs:
           # (required) GitHub token for creating GitHub Releases.
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: cargo build --release
+    - name: make dir
+      run: mkdir app
+    - name: copy
+      run: cp ./target/release/bdk-reserves-web ./app/
+
+
   upload-assets:
     runs-on: ubuntu-latest
     steps:
@@ -43,7 +55,7 @@ jobs:
           # name of the Heroku app
           heroku_app_name: "bdk-reserves-web"
           # app directory
-          appdir: "./"
+          appdir: "./app"
           # start command
           procfile: "web: ./bdk-reserves-web"
           # email from which the app is uploaded
