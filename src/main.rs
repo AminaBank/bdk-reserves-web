@@ -126,7 +126,7 @@ async fn main() -> io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .wrap(middleware::Logger::default()) // <- enable logger
+            .wrap(middleware::Logger::default())
             .data(web::JsonConfig::default().limit(40960)) // <- limit size of the payload (global configuration)
             .service(web::resource("/proof").route(web::post().to(check_proof)))
             .service(index)

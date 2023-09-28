@@ -52,33 +52,34 @@ jobs:
         run: cargo test
 
 
-#  check-azure:
-#    name: Check Azure
-#    runs-on: ubuntu-20.04
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v2
-#      - name: Cache
-#        uses: actions/cache@v2
-#        with:
-#          path: |
-#            ~/.cargo/registry
-#            ~/.cargo/git
-#            target
-#          key: ${{ runner.os }}-cargo-${{ github.job }}-${{ hashFiles('**/Cargo.toml','**/Cargo.lock') }}
-#      - run: sudo apt-get update || exit 1
-#      - run: sudo apt-get install -y clang musl musl-tools || exit 1
-#      - run: sudo ln -s /usr/bin/g++ /usr/bin/musl-g++
-#      - name: Set default toolchain
-#        run: rustup default 1.63.0
-#      - name: Set profile
-#        run: rustup set profile minimal
-#      - name: Add target musl
-#        run: rustup target add x86_64-unknown-linux-musl
-#      - name: Update toolchain
-#        run: rustup update
-#      - name: Check
-#        run: cargo build --release --target=x86_64-unknown-linux-musl
+  check-azure:
+    name: Check Azure
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ github.job }}-${{ hashFiles('**/Cargo.toml','**/Cargo.lock') }}
+      - run: sudo apt-get update || exit 1
+      - run: sudo apt-get install -y clang musl musl-tools || exit 1
+      - run: sudo ln -s /usr/bin/g++ /usr/bin/musl-g++
+      - run: sudo ln -s /usr/bin/rust-lld /usr/bin/musl-lld
+      - name: Set default toolchain
+        run: rustup default 1.63.0
+      - name: Set profile
+        run: rustup set profile minimal
+      - name: Add target musl
+        run: rustup target add x86_64-unknown-linux-musl
+      - name: Update toolchain
+        run: rustup update
+      - name: Check
+        run: cargo build --release --target=x86_64-unknown-linux-musl
 
   fmt:
     name: Rust fmt
