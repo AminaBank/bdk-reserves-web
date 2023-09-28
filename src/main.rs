@@ -29,7 +29,7 @@ async fn check_proof(item: web::Json<ProofOfReserves>, req: HttpRequest) -> Http
         handle_ext_reserves(&item.message, &item.proof_psbt, 3, item.addresses.clone());
 
     let answer = match proof_result {
-        Err(e) => json!({ "error": e.to_string() }),
+        Err(e) => json!({ "error": e }),
         Ok(res) => res,
     }
     .to_string();
@@ -42,13 +42,13 @@ fn handle_ext_reserves(
     confirmations: usize,
     addresses: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let psbt = base64::decode(&psbt).map_err(|e| format!("Base64 decode error: {:?}", e))?;
+    let psbt = base64::decode(psbt).map_err(|e| format!("Base64 decode error: {:?}", e))?;
     let psbt: PartiallySignedTransaction =
         deserialize(&psbt).map_err(|e| format!("PSBT deserialization error: {:?}", e))?;
     if addresses.is_empty() {
         return Err("No address provided".to_string());
     }
-    let (server, network) = if addresses[0].starts_with("2") {
+    let (server, network) = if addresses[0].starts_with('2') {
         ("ssl://electrum.blockstream.info:60002", Network::Testnet)
     } else {
         ("ssl://electrum.blockstream.info:50002", Network::Bitcoin)
@@ -77,7 +77,7 @@ fn handle_ext_reserves(
             outpoints
         });
 
-    let spendable = verify_proof(&psbt, &message, outpoints_combined, network)
+    let spendable = verify_proof(&psbt, message, outpoints_combined, network)
         .map_err(|e| format!("{:?}", e))?;
 
     Ok(json!({ "spendable": spendable }))
@@ -119,10 +119,14 @@ fn get_outpoints_for_address(
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
-    let address = env::var("BIND_ADDRESS").unwrap_or_else(|_err| "localhost:8087".to_string());
+    let address = env::var("BIND_ADDRESS").unwrap_or_else(|_err| match env::var("PORT") {
+        Ok(p) => format!("0.0.0.0:{}", p),
+        Err(_e) => "localhost:8087".to_string(),
+    });
 
     println!("Starting HTTP server at http://{}.", address);
     println!("You can choose a different address through the BIND_ADDRESS env var.");
+    println!("You can choose a different port through the PORT env var.");
 
     HttpServer::new(|| {
         App::new()
@@ -140,7 +144,7 @@ async fn main() -> io::Result<()> {
 mod tests {
     use super::*;
     use actix_web::dev::Service;
-    use actix_web::{http, test, web, App};
+    use actix_web::{http, test, web, App, Error};
 
     #[actix_rt::test]
     async fn test_index() -> Result<(), Error> {
