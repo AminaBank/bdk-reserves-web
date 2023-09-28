@@ -43,7 +43,7 @@ jobs:
           # name of the Heroku app
           heroku_app_name: "bdk-reserves-web"
           # app directory
-          appdir: "./app"
+          appdir: "./"
           # start command
           procfile: "web: ./bdk-reserves-web"
           # email from which the app is uploaded
