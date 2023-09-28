@@ -15,6 +15,29 @@ struct ProofOfReserves {
     proof_psbt: String,
 }
 
+#[actix_web::main]
+async fn main() -> io::Result<()> {
+    let address = env::var("BIND_ADDRESS").unwrap_or_else(|_err| match env::var("PORT") {
+        Ok(p) => format!("0.0.0.0:{}", p),
+        Err(_e) => "localhost:8087".to_string(),
+    });
+
+    println!("Starting HTTP server at http://{}.", address);
+    println!("You can choose a different address through the BIND_ADDRESS env var.");
+    println!("You can choose a different port through the PORT env var.");
+
+    HttpServer::new(|| {
+        App::new()
+            .wrap(middleware::Logger::default()) // <- enable logger
+            .data(web::JsonConfig::default().limit(40960)) // <- limit size of the payload (global configuration)
+            .service(web::resource("/proof").route(web::post().to(check_proof)))
+            .service(index)
+    })
+    .bind(address)?
+    .run()
+    .await
+}
+
 #[get("/")]
 async fn index() -> impl Responder {
     let html = include_str!("../res/index.html");
@@ -115,29 +138,6 @@ fn get_outpoints_for_address(
             ))
         })
         .collect()
-}
-
-#[actix_web::main]
-async fn main() -> io::Result<()> {
-    let address = env::var("BIND_ADDRESS").unwrap_or_else(|_err| match env::var("PORT") {
-        Ok(p) => format!("0.0.0.0:{}", p),
-        Err(_e) => "localhost:8087".to_string(),
-    });
-
-    println!("Starting HTTP server at http://{}.", address);
-    println!("You can choose a different address through the BIND_ADDRESS env var.");
-    println!("You can choose a different port through the PORT env var.");
-
-    HttpServer::new(|| {
-        App::new()
-            .wrap(middleware::Logger::default()) // <- enable logger
-            .data(web::JsonConfig::default().limit(40960)) // <- limit size of the payload (global configuration)
-            .service(web::resource("/proof").route(web::post().to(check_proof)))
-            .service(index)
-    })
-    .bind(address)?
-    .run()
-    .await
 }
 
 #[cfg(test)]

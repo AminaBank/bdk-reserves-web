@@ -5,7 +5,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v0.1.1]
+## [v0.1.8]
+
+### Summary
+
+Nicer frontend
+
+### Changed
+
+- Nicer frontend website
+
+## [v0.1.7]
 
 ### Summary
 

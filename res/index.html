@@ -1,3 +1,13 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+</head>
+<body>
+<h1>Bitcoin Proof of Reserves</h1>
+You can verify  <a href="https://github.com/bitcoin/bips/blob/master/bip-0127.mediawiki">BIP-0127</a> Proof of Reserves BSBTs.<br/>
+Learn more at <a href="https://crates.io/crates/bdk-reserves">bdk-reserves</a> or <a href="https://ulrichard.ch/blog/?p=2566">Richis blog</a><br/>
+
+<h3>Proof details</h3>
 <form onsubmit='
     console.log(event);
     var obj = new Object();
@@ -20,14 +30,15 @@
 
     return false;
   '>
-  <label for="addresses">Addresses (comma separated):</label><br>
-  <input type="text" id="addresses" name="addresses" width="100"><br>
+  <label for="addresses">Addresses (comma separated):</label><br/>
+  <textarea id="addresses" name="addresses" rows="2" cols="90"></textarea><br/>
   <label for="message">Message:</label><br>
-  <input type="text" id="message" name="message"><br>
+  <textarea id="message" name="message" rows="2" cols="90"></textarea><br/>
   <label for="proof">Proof PSBT base64:</label><br>
-  <input type="text" id="proof" name="proof"><br>
+  <textarea id="proof" name="proof" rows="26" cols="90"></textarea><br/>
   <input type="submit" value="Submit"><br>
   <label for="res">result:</label><br>
-  <textarea id="res" name="res" rows="10" cols="100" placeholder="..."></textarea>
+  <textarea id="res" name="res" rows="3" cols="90"></textarea><br/>
 </form>
-
+</body>
+</html>

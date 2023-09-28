@@ -29,6 +29,10 @@ The `bdk-reserves-web` is a simple web app to validate the proofs.
 * It validates proofs in the form of PSBT's.
 * The implementation was inspired by <a href="https://github.com/bitcoin/bips/blob/master/bip-0127.mediawiki">BIP-0127</a> and <a href="https://github.com/bitcoin/bips/blob/master/bip-0322.mediawiki">BIP-0322</a>.
 
+## Heroku
+The web app is currently deployed to heroku, and can be reached here:
+<a href="https://bdk-reserves-web-de8e62f67d92.herokuapp.com">bdk-reserves-web</a>
+
 ## Sponsorship
 The implementation of <b>bdk-reserves-web</b> was sponsored by <a href="https://seba.swiss">SEBA Bank</a>.
 
