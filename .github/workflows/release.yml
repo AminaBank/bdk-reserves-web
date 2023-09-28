@@ -42,6 +42,8 @@ jobs:
           heroku_api_key: ${{secrets.HEROKU_API_KEY}}
           # name of the Heroku app
           heroku_app_name: "bdk-reserves-web"
+          # start command
+          procfile: "web: ./bdk-reserves-web"
           # email from which the app is uploaded
           heroku_email: "richi+heroku@ulrichard.ch"
           # buildpack is like environment used to run the app
