@@ -11,6 +11,8 @@
 
   <p>
     <a href="https://github.com/bitcoindevkit/bdk-reserves/blob/master/LICENSE"><img alt="MIT or Apache-2.0 Licensed" src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg"/></a>
+    <a href="https://github.com/weareseba/bdk-reserves-web/actions?query=workflow%3ACI"><img alt="CI Status" src="https://github.com/weareseba/bdk-reserves-web/workflows/CI/badge.svg"></a>
+    <a href="https://bdk-reserves-web-de8e62f67d92.herokuapp.com"><img alt="Heroku" src="https://heroku-badge.herokuapp.com/?app=bdk-reserves-web"></a>
   </p>
 
   <h4>
