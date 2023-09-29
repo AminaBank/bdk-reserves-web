@@ -23,7 +23,7 @@ jobs:
           - version: 1.63.0 # MSRV
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Generate cache key
         run: echo "${{ matrix.rust.version }}" | tee .cache_key
       - name: cache
@@ -57,7 +57,7 @@ jobs:
 #    runs-on: ubuntu-20.04
 #    steps:
 #      - name: Checkout
-#        uses: actions/checkout@v2
+#        uses: actions/checkout@v4
 #      - name: Cache
 #        uses: actions/cache@v2
 #        with:
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set default toolchain
         run: rustup default nightly
       - name: Set profile
