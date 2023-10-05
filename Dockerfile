@@ -1,6 +1,6 @@
 FROM rust:1.72-alpine3.18 as builder
 RUN apk add --no-cache build-base
-USER guest
+USER bin
 WORKDIR /app
 COPY . .
 RUN cargo test
