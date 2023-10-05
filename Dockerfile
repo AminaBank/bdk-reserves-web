@@ -6,7 +6,7 @@ COPY . .
 RUN cargo test
 RUN cargo build --release
 RUN install -D target/release/bdk-reserves-web dist/bin/bdk-reserves-web
-RUN ldd target/release/bdk-reserves-web | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % dist/%
+RUN ldd dist/bin/bdk-reserves-web | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % dist/%
 RUN ln -s ld-musl-x86_64.so.1 dist/lib/libc.musl-x86_64.so.1
 
 RUN rustup component add clippy-preview \
