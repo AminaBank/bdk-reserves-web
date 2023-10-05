@@ -1,8 +1,7 @@
 FROM rust:1.72-alpine3.18 as builder
 RUN apk add --no-cache build-base
-RUN adduser -S -G abuild satoshi
-USER satoshi
-WORKDIR /home/satoshi
+USER guest
+WORKDIR /app
 COPY . .
 RUN cargo test
 RUN cargo build --release
@@ -18,6 +17,6 @@ RUN cargo clippy
 #RUN cargo audit
 
 FROM scratch
-COPY --from=builder /home/satoshi/dist /
+COPY --from=builder /app/dist /
 USER 65534
 ENTRYPOINT ["/bin/bdk-reserves-web"]
