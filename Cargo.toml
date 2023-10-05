@@ -11,7 +11,14 @@ bdk = "0.28"
 bdk-reserves = "0.28"
 env_logger = "0.10"
 log = "0.4"
-base64 = "^0.13"
+base64 = "0.13"
 
 [dev-dependencies]
 actix-rt = "1"
+
+[profile.release]
+opt-level = 'z'     # Optimize for size
+lto = true          # Enable link-time optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+panic = 'abort'     # Abort on panic
+strip = true        # Strip symbols from binary*
