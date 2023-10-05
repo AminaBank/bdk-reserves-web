@@ -10,6 +10,13 @@ RUN install -D target/release/bdk-reserves-web dist/bin/bdk-reserves-web
 RUN ldd target/release/bdk-reserves-web | tr -s [:blank:] '\n' | grep ^/ | xargs -I % install -D % dist/%
 RUN ln -s ld-musl-x86_64.so.1 dist/lib/libc.musl-x86_64.so.1
 
+RUN rustup component add clippy-preview \
+ && rustup component add rustfmt
+RUN cargo install cargo-audit
+RUN cargo fmt -- --check
+RUN cargo clippy
+#RUN cargo audit
+
 FROM scratch
 COPY --from=builder /home/satoshi/dist /
 USER 65534
