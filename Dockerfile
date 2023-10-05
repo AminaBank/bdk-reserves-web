@@ -14,7 +14,7 @@ RUN rustup component add clippy-preview \
 RUN cargo install cargo-audit
 RUN cargo fmt -- --check
 RUN cargo clippy
-#RUN cargo audit
+RUN cargo audit
 
 FROM scratch
 COPY --from=builder /app/dist /

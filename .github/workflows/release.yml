@@ -36,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set default toolchain
+        run: rustup default 1.72.0
       - name: Build
         run: cargo build --release
       - name: make dir
