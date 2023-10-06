@@ -1,44 +1,79 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Proof of Reserves</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <script>
+        function onSubmit(event) {
+            var jsonString = JSON.stringify({
+                addresses: addresses.value.split(","),
+                message: message.value,
+                proof_psbt: proof.value,
+            });
+            console.log(jsonString);
+            fetch("/proof", {
+                method: "POST",
+                body: jsonString,
+                headers: {
+                    "Content-type": "application/json; charset=UTF-8"
+                }
+            })
+                .then(response => response.json())
+                .then(json => {
+                    if (json.error) {
+                        console.error(json.error);
+                        error.textContent = json.error;
+                        error.style.display = "block";
+                        res.style.display = "none";
+                    } else {
+                        console.log(json);
+                        spendable.textContent = json.spendable;
+                        error.style.display = "none";
+                        res.style.display = "block";
+                    }
+                })
+                .catch(console.error);
+            return false;
+        }
+    </script>
+    <style>
+        #res {
+            display: none;
+            color: green;
+        }
+        #error {
+            color:red;
+        }
+    </style>
 </head>
 <body>
-<h1>Bitcoin Proof of Reserves</h1>
-You can verify  <a href="https://github.com/bitcoin/bips/blob/master/bip-0127.mediawiki">BIP-0127</a> Proof of Reserves PSBTs.<br/>
-Learn more at <a href="https://crates.io/crates/bdk-reserves">bdk-reserves</a> or <a href="https://ulrichard.ch/blog/?p=2566">Richis blog</a><br/>
+    <h1>Bitcoin Proof of Reserves</h1>
+    You can verify  <a href="https://github.com/bitcoin/bips/blob/master/bip-0127.mediawiki">BIP-0127</a> Proof of Reserves PSBTs.<br/>
+    Learn more at <a href="https://crates.io/crates/bdk-reserves">bdk-reserves</a> or <a href="https://ulrichard.ch/blog/?p=2566">Richis blog</a><br/>
 
-<h3>Proof details</h3>
-<form onsubmit='
-    console.log(event);
-    var obj = new Object();
-    obj.addresses = addresses.value.split(",");
-    obj.message = message.value;
-    obj.proof_psbt = proof.value;
-    var jsonString= JSON.stringify(obj);
-    console.log(jsonString);
-
-    fetch("/proof", {
-        method: "POST",
-        body: jsonString,
-        headers: {
-            "Content-type": "application/json; charset=UTF-8"
-        }
-    })
-  .then((response) => response.json())
-  .then((json) => {console.log(json); res.value = JSON.stringify(json);});
-
-
-    return false;
-  '>
-  <label for="addresses">Addresses (comma separated):</label><br/>
-  <textarea id="addresses" name="addresses" rows="2"></textarea><br/>
-  <label for="message">Message:</label><br>
-  <textarea id="message" name="message" rows="2"></textarea><br/>
-  <label for="proof">Proof PSBT base64:</label><br>
-  <textarea id="proof" name="proof" rows="26"></textarea><br/>
-  <input type="submit" value="Submit"><br>
-  <label for="res">result:</label><br>
-  <textarea id="res" name="res" rows="3"></textarea><br/>
-</form>
+    <h3>Proof details</h3>
+    <form onsubmit="return onSubmit(this)">
+        <p>
+            <label for="addresses">Addresses (comma separated):</label>
+            <textarea id="addresses" name="addresses" rows="2"></textarea>
+        </p>
+        <p>
+            <label for="message">Message:</label>
+            <textarea id="message" name="message" rows="2"></textarea>
+        </p>
+        <p>
+            <label for="proof">Proof PSBT base64:</label>
+            <textarea id="proof" name="proof" rows="26"></textarea>
+        </p>
+        <p>
+            <input type="submit" value="Submit">
+        </p>
+    </form>
+    <h4 id="res">
+        Spendable: <span id="spendable"></span> sats
+    </h4>
+    <div id="error"></div>
 </body>
 </html>
