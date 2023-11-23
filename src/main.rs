@@ -164,7 +164,6 @@ mod tests {
         let response_body = resp.into_body();
         let resp = r#"{"error":"NonSpendableInput(1)"}"#;
         assert_eq!(to_bytes(response_body).await?, resp);
-        //assert_eq!(to_bytes(response_body).await?, r##"Hello world!"##);
 
         Ok(())
     }
