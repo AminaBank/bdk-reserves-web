@@ -5,6 +5,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.1.10]
+
+### Summary
+
+Updated dependencies
+
+### Changed
+
+- upgraded bdk-reserves with improved signature verification
+- upgraded other dependencies
+
 ## [v0.1.9]
 
 ### Summary
