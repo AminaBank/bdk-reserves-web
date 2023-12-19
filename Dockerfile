@@ -33,7 +33,7 @@ RUN cargo fmt -- --check
 RUN cargo clippy
 RUN cargo audit
 
-FROM scratch
+FROM alpine
 COPY --from=builder /app/dist /
 USER 65534
 ENTRYPOINT ["/bin/bdk-reserves-web"]
