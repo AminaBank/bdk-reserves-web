@@ -2,6 +2,11 @@ FROM rust:1.72-alpine3.18 as builder
 
 ARG ALPINE_REPO
 ARG MITM_CA
+ARG http_proxy
+ENV http_proxy=$http_proxy
+ENV https_proxy=$http_proxy
+ENV HTTP_PROXY=$http_proxy
+ENV HTTPS_PROXY=$http_proxy
 
 # allowing custom package repositories
 RUN printf "${ALPINE_REPO}/main\n${ALPINE_REPO}/community\n" > /etc/apk/repositories
