@@ -1,6 +1,6 @@
 [package]
 name = "bdk-reserves-web"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 
 [dependencies]
@@ -12,6 +12,7 @@ bdk-reserves = "0.28"
 #env_logger = "0.10"
 log = "0.4"
 base64 = "0.13"
+prometheus = "0.13"
 
 [dev-dependencies]
 #actix-rt = "2"
