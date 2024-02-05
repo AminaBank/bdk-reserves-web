@@ -13,6 +13,7 @@ bdk-reserves = "0.28"
 log = "0.4"
 base64 = "0.13"
 prometheus = "0.13"
+lazy_static = "1.4"
 
 [dev-dependencies]
 #actix-rt = "2"
