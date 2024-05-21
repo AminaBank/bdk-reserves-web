@@ -4,6 +4,8 @@ use bdk::bitcoin::util::psbt::PartiallySignedTransaction;
 use bdk::bitcoin::{Address, Network, OutPoint, TxOut};
 use bdk::electrum_client::{Client, ElectrumApi};
 use bdk_reserves::reserves::verify_proof;
+use lazy_static::lazy_static;
+use prometheus::{self, register_int_counter, Encoder, IntCounter, TextEncoder};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{env, io, str::FromStr};
@@ -13,6 +15,16 @@ struct ProofOfReserves {
     addresses: Vec<String>,
     message: String,
     proof_psbt: String,
+}
+
+lazy_static! {
+    static ref POR_SUCCESS_COUNTER: IntCounter =
+        register_int_counter!("POR_success", "Successfully validated proof of reserves").unwrap();
+}
+
+lazy_static! {
+    static ref POR_INVALID_COUNTER: IntCounter =
+        register_int_counter!("POR_invalid", "Invalid proof of reserves").unwrap();
 }
 
 #[actix_web::main]
@@ -25,12 +37,15 @@ async fn main() -> io::Result<()> {
     println!("Starting HTTP server at http://{}.", address);
     println!("You can choose a different address through the BIND_ADDRESS env var.");
     println!("You can choose a different port through the PORT env var.");
+    POR_INVALID_COUNTER.reset();
+    POR_SUCCESS_COUNTER.reset();
 
     HttpServer::new(|| {
         App::new()
             .wrap(middleware::Logger::default()) // <- enable logger
             .app_data(web::JsonConfig::default().limit(40960)) // <- limit size of the payload (global configuration)
             .service(web::resource("/proof").route(web::post().to(check_proof)))
+            .service(web::resource("/prometheus").route(web::get().to(prometheus)))
             .service(index)
     })
     .bind(address)?
@@ -44,6 +59,17 @@ async fn index() -> impl Responder {
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
+async fn prometheus() -> HttpResponse {
+    let metric_families = prometheus::gather();
+    let mut buffer = Vec::new();
+    let encoder = TextEncoder::new();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+
+    let output = String::from_utf8(buffer.clone()).unwrap();
+    //println!("************************\nprometheus stats:\n{}", output);
+    HttpResponse::Ok().content_type("text/plain").body(output)
+}
+
 async fn check_proof(item: web::Json<ProofOfReserves>, req: HttpRequest) -> HttpResponse {
     println!("request: {:?}", req);
     println!("model: {:?}", item);
@@ -52,8 +78,14 @@ async fn check_proof(item: web::Json<ProofOfReserves>, req: HttpRequest) -> Http
         handle_ext_reserves(&item.message, &item.proof_psbt, 3, item.addresses.clone());
 
     let answer = match proof_result {
-        Err(e) => json!({ "error": e }),
-        Ok(res) => res,
+        Err(e) => {
+            POR_INVALID_COUNTER.inc();
+            json!({ "error": e })
+        }
+        Ok(res) => {
+            POR_SUCCESS_COUNTER.inc();
+            res
+        }
     }
     .to_string();
     HttpResponse::Ok().content_type("text/json").body(answer)
@@ -147,7 +179,9 @@ mod tests {
 
     #[actix_web::test]
     async fn test_index() -> Result<(), Error> {
-        let app = App::new().route("/proof", web::post().to(check_proof));
+        let app = App::new()
+            .route("/proof", web::post().to(check_proof))
+            .route("/prometheus", web::get().to(prometheus));
         let app = test::init_service(app).await;
 
         let req = test::TestRequest::post().uri("/proof")
@@ -164,7 +198,15 @@ mod tests {
         let response_body = resp.into_body();
         let resp = r#"{"error":"NonSpendableInput(1)"}"#;
         assert_eq!(to_bytes(response_body).await?, resp);
-        //assert_eq!(to_bytes(response_body).await?, r##"Hello world!"##);
+
+        let req = test::TestRequest::get().uri("/prometheus").to_request();
+        let resp = app.call(req).await?;
+
+        assert_eq!(resp.status(), http::StatusCode::OK);
+
+        let response_body = resp.into_body();
+        let resp = "# HELP POR_invalid Invalid proof of reserves\n# TYPE POR_invalid counter\nPOR_invalid 1\n";
+        assert_eq!(to_bytes(response_body).await?, resp);
 
         Ok(())
     }
