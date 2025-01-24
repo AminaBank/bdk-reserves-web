@@ -1,8 +1,9 @@
-FROM rust:1.72-alpine3.18 as builder
+FROM rust:1.83-alpine3.20 as builder
 RUN apk add --no-cache build-base
-USER bin
+#USER bin
 WORKDIR /app
 COPY . .
+#RUN ls -lha
 RUN cargo test
 RUN cargo build --release
 RUN install -D target/release/bdk-reserves-web dist/bin/bdk-reserves-web

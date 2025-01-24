@@ -1,9 +1,14 @@
 use actix_web::{get, middleware, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
-use bdk::bitcoin::consensus::encode::deserialize;
-use bdk::bitcoin::util::psbt::PartiallySignedTransaction;
-use bdk::bitcoin::{Address, Network, OutPoint, TxOut};
-use bdk::electrum_client::{Client, ElectrumApi};
+use bdk_electrum::{
+    electrum_client::{self, ElectrumApi},
+    BdkElectrumClient,
+};
 use bdk_reserves::reserves::verify_proof;
+use bdk_wallet::bitcoin::{
+    base64::{engine::general_purpose::STANDARD, Engine as _},
+    psbt::Psbt,
+    {Address, Network, OutPoint, TxOut},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{env, io, str::FromStr};
@@ -65,9 +70,11 @@ fn handle_ext_reserves(
     confirmations: usize,
     addresses: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let psbt = base64::decode(psbt).map_err(|e| format!("Base64 decode error: {:?}", e))?;
-    let psbt: PartiallySignedTransaction =
-        deserialize(&psbt).map_err(|e| format!("PSBT deserialization error: {:?}", e))?;
+    let psbt = STANDARD
+        .decode(psbt)
+        .map_err(|e| format!("Base64 decode error: {:?}", e))?;
+    let psbt =
+        Psbt::deserialize(&psbt).map_err(|e| format!("PSBT deserialization error: {:?}", e))?;
     if addresses.is_empty() {
         return Err("No address provided".to_string());
     }
@@ -76,10 +83,13 @@ fn handle_ext_reserves(
     } else {
         ("ssl://electrum.blockstream.info:50002", Network::Bitcoin)
     };
-    let client =
-        Client::new(server).map_err(|e| format!("Failed to create Electrum client: {:?}", e))?;
+
+    let client = electrum_client::Client::new(server)
+        .map_err(|e| format!("Failed to create Electrum client: {:?}", e))?;
+    let client = BdkElectrumClient::new(client);
 
     let current_block_height = client
+        .inner
         .block_headers_subscribe()
         .map(|data| data.height)
         .map_err(|e| format!("Failed to get block height: {:?}", e))?;
@@ -88,8 +98,10 @@ fn handle_ext_reserves(
     let outpoints_per_addr = addresses
         .iter()
         .map(|address| {
-            let address =
-                Address::from_str(address).map_err(|e| format!("Invalid address: {:?}", e))?;
+            let address = Address::from_str(address)
+                .map_err(|e| format!("Invalid address: {:?}", e))?
+                .require_network(network)
+                .map_err(|e| format!("Invalid address: {:?}", e))?;
             get_outpoints_for_address(&address, &client, max_confirmation_height)
         })
         .collect::<Result<Vec<Vec<_>>, String>>()?;
@@ -100,8 +112,8 @@ fn handle_ext_reserves(
             outpoints
         });
 
-    let spendable = verify_proof(&psbt, message, outpoints_combined, network)
-        .map_err(|e| format!("{:?}", e))?;
+    let spendable =
+        verify_proof(&psbt, message, outpoints_combined).map_err(|e| format!("{:?}", e))?;
 
     Ok(json!({ "spendable": spendable }))
 }
@@ -109,10 +121,11 @@ fn handle_ext_reserves(
 /// Fetch all the utxos, for a given address.
 fn get_outpoints_for_address(
     address: &Address,
-    client: &Client,
+    client: &BdkElectrumClient<electrum_client::Client>,
     max_confirmation_height: Option<usize>,
 ) -> Result<Vec<(OutPoint, TxOut)>, String> {
     let unspents = client
+        .inner
         .script_list_unspent(&address.script_pubkey())
         .map_err(|e| format!("{:?}", e))?;
 
@@ -122,7 +135,7 @@ fn get_outpoints_for_address(
             utxo.height > 0 && utxo.height <= max_confirmation_height.unwrap_or(usize::MAX)
         })
         .map(|utxo| {
-            let tx = match client.transaction_get(&utxo.tx_hash) {
+            let tx = match client.inner.transaction_get(&utxo.tx_hash) {
                 Ok(tx) => tx,
                 Err(e) => {
                     return Err(e).map_err(|e| format!("{:?}", e))?;

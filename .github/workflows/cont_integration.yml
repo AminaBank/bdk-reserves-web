@@ -18,9 +18,9 @@ jobs:
     strategy:
       matrix:
         rust:
-          - version: 1.72.0 # STABLE
+          - version: 1.83.0 # STABLE
             clippy: true
-          - version: 1.68.2 # MSRV
+          - version: 1.78.0 # MSRV
     steps:
       - name: checkout
         uses: actions/checkout@v4
