@@ -1,18 +1,35 @@
 [package]
 name = "bdk-reserves-web"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
+description = "Browser-only verifier for BIP-127 proof of reserves PSBTs"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-actix-web = "4"
+bdk_wallet = { version = "3", default-features = false, features = ["std"] }
+bdk-reserves = "3.0.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-bdk_wallet = "1.0.0"
-bdk-reserves = { git = "https://github.com/AminaBank/bdk-reserves", branch = "feature/v1" }
-bdk_electrum = "0.20"
-log = "0.4"
 
-[dev-dependencies]
+# wasm-bindgen is pinned because the CLI that post-processes the module has to
+# match the crate exactly. bump both together, see build.sh.
+wasm-bindgen = "=0.2.127"
+wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+console_error_panic_hook = "0.1"
+
+# secp256k1 needs a randomness source for context re-randomisation, which on
+# wasm has to come from the browser.
+getrandom = { version = "0.2", features = ["js"] }
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["Request", "RequestInit", "Response"]
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

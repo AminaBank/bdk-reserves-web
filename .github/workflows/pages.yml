@@ -1,0 +1,69 @@
+name: Pages
+
+# Publishes the static site to https://aminabank.github.io/bdk-reserves-web/
+#
+# Needs "Build and deployment > Source" set to "GitHub Actions" once, under the
+# repository's Settings > Pages. Without that the deploy step fails.
+
+on:
+  push:
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it half way, but queue at
+# most one behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set default toolchain
+        run: rustup default 1.97.1
+      - name: Add the wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      # The wasi-sdk is a ~130MB download, so keep it between runs.
+      - name: Cache the build tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            .tools
+          key: ${{ runner.os }}-pages-${{ hashFiles('**/Cargo.lock', 'build.sh') }}
+
+      # Build and test together, so a broken proof verifier never reaches the
+      # published site. make test-e2e builds dist/ as a side effect.
+      - name: Build and test
+        run: make test
+
+      # Pages runs Jekyll otherwise, which skips files it does not expect.
+      - name: Disable Jekyll
+        run: touch dist/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

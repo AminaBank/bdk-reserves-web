@@ -1,0 +1,9 @@
+{
+  "addresses": [
+    "2Mtkk3kjyN8hgdGXPuJCNnwS3BBY4K2frhY"
+  ],
+  "message": "Stored in SEBA Bank AG cold storage",
+  "proof_psbt": "proof.psbt.base64",
+  "confirmations": 3,
+  "note": "A real testnet proof of 0.5386558 BTC over 18 UTXOs. Those UTXOs have since been spent, so verifying it against a live server reports NonSpendableInput. That is the correct answer: a proof only holds while the coins behind it are still there."
+}

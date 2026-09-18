@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bitcoin Proof of Reserves</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fff;
+    --fg: #1f2328;
+    --muted: #59636e;
+    --line: #d6dae0;
+    --field: #fff;
+    --accent: #1a7f37;
+    --accent-fg: #fff;
+    --ok-bg: #dafbe1;
+    --ok-fg: #0f5323;
+    --err-bg: #ffebe9;
+    --err-fg: #a40e26;
+    --info-bg: #ddf4ff;
+    --info-fg: #0a3069;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #9198a1;
+      --line: #30363d;
+      --field: #161b22;
+      --accent: #238636;
+      --ok-bg: #12261e;
+      --ok-fg: #56d364;
+      --err-bg: #2c1618;
+      --err-fg: #ff7b72;
+      --info-bg: #121d2f;
+      --info-fg: #79c0ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+    max-width: 46rem;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .lede { color: var(--muted); margin: 0 0 2rem; }
+  a { color: var(--accent); }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 1rem; padding: 1rem; }
+  legend { padding: 0 .4rem; color: var(--muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+  label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: .3rem; }
+  .hint { font-weight: 400; color: var(--muted); }
+  input, textarea {
+    width: 100%;
+    padding: .5rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--field);
+    color: inherit;
+    font-size: .9rem;
+    font-family: inherit;
+  }
+  textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+  .field + .field { margin-top: 1rem; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .row .field { flex: 1 1 12rem; margin-top: 0; }
+  button {
+    background: var(--accent);
+    color: var(--accent-fg);
+    border: 0;
+    border-radius: 6px;
+    padding: .6rem 1.4rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary { background: none; color: var(--accent); border: 1px solid var(--line); font-weight: 500; }
+  button:disabled { opacity: .6; cursor: progress; }
+  .actions { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+  #result { margin-top: 1.5rem; border-radius: 8px; padding: 1rem; display: none; }
+  #result.ok { display: block; background: var(--ok-bg); color: var(--ok-fg); }
+  #result.err { display: block; background: var(--err-bg); color: var(--err-fg); }
+  #result.info { display: block; background: var(--info-bg); color: var(--info-fg); }
+  #result h2 { margin: 0 0 .3rem; font-size: 1.1rem; }
+  .amount { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .meta { margin: .6rem 0 0; font-size: .85rem; opacity: .85; }
+  .err-body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; word-break: break-word; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+  footer img { height: 2rem; vertical-align: middle; margin-right: 1rem; }
+</style>
+</head>
+<body>
+  <h1>Bitcoin Proof of Reserves</h1>
+  <p class="lede">
+    Verify a <a href="https://github.com/bitcoin/bips/blob/master/bip-0127.mediawiki">BIP-127</a>
+    proof of reserves PSBT. Everything runs in this tab: the PSBT is never uploaded anywhere.
+  </p>
+
+  <form id="form">
+    <fieldset>
+      <legend>Proof</legend>
+      <div class="field">
+        <label for="addresses">Addresses <span class="hint">one per line, or comma separated</span></label>
+        <textarea id="addresses" rows="3" spellcheck="false" required></textarea>
+      </div>
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea id="message" rows="2" required></textarea>
+      </div>
+      <div class="field">
+        <label for="psbt">Proof PSBT <span class="hint">base64</span></label>
+        <textarea id="psbt" rows="12" spellcheck="false" required></textarea>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Lookup</legend>
+      <div class="row">
+        <div class="field">
+          <label for="confirmations">Confirmations</label>
+          <input id="confirmations" type="number" min="0" max="1000" value="3">
+        </div>
+        <div class="field">
+          <label for="esplora">Esplora server <span class="hint">optional</span></label>
+          <input id="esplora" type="url" placeholder="chosen from the address network" spellcheck="false">
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="actions">
+      <button id="submit" type="submit" disabled>Loading…</button>
+      <button id="example" type="button" class="secondary">Load example</button>
+    </div>
+  </form>
+
+  <div id="result" role="status" aria-live="polite"></div>
+
+  <footer>
+    <a href="https://bitcoindevkit.org"><img src="static/bdk.png" alt="Bitcoin Dev Kit"></a>
+    <a href="https://www.aminagroup.com"><img src="static/amina_logo.png" alt="AMINA Bank"></a>
+    <p>
+      Built on <a href="https://crates.io/crates/bdk-reserves">bdk-reserves</a>, compiled to
+      WebAssembly. Background in <a href="https://ulrichard.ch/blog/?p=2566">Richi's blog</a>.
+    </p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

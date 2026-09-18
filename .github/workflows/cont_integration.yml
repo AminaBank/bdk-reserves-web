@@ -18,47 +18,49 @@ jobs:
     strategy:
       matrix:
         rust:
-          - version: 1.83.0 # STABLE
+          - version: 1.97.1 # STABLE
             clippy: true
-          - version: 1.78.0 # MSRV
+          - version: 1.85.0 # MSRV
     steps:
       - name: checkout
         uses: actions/checkout@v4
       - name: Generate cache key
         run: echo "${{ matrix.rust.version }}" | tee .cache_key
       - name: cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             target
+            .tools
           key: ${{ runner.os }}-cargo-${{ hashFiles('.cache_key') }}-${{ hashFiles('**/Cargo.toml','**/Cargo.lock') }}
       - name: Set default toolchain
         run: rustup default ${{ matrix.rust.version }}
       - name: Set profile
         run: rustup set profile minimal
+      - name: Add the wasm target
+        run: rustup target add wasm32-unknown-unknown
       - name: Add clippy
         if: ${{ matrix.rust.clippy }}
         run: rustup component add clippy
       - name: Update toolchain
         run: rustup update
-      - name: Build
-        run: cargo build
+      - name: Test the verification logic
+        run: cargo test
       - name: Clippy
         if: ${{ matrix.rust.clippy }}
         run: cargo clippy --all-targets -- -D warnings
-      - name: Test
-        run: cargo test
-
-  build-docker:
-    name: build docker
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Build the  Docker image
-        run: docker build --file Dockerfile --tag bdk-reserves-web .
+      - name: Build the static site
+        run: make build
+      - name: Test the built module end to end
+        run: make test-e2e
+      - name: Upload the site
+        if: ${{ matrix.rust.clippy }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
 
   fmt:
     name: Rust fmt
@@ -67,12 +69,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set default toolchain
-        run: rustup default nightly
+        run: rustup default 1.97.1
       - name: Set profile
         run: rustup set profile minimal
       - name: Add rustfmt
         run: rustup component add rustfmt
-      - name: Update toolchain
-        run: rustup update
       - name: Check fmt
-        run: cargo fmt --all -- --config format_code_in_doc_comments=true --check
+        run: cargo fmt --all -- --check

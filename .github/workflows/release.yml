@@ -20,41 +20,22 @@ jobs:
           # (required) GitHub token for creating GitHub Releases.
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  upload-assets:
+  # The app is a static site now, so the release asset is the site itself
+  # rather than a server binary.
+  upload-site:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-          # Note that glob pattern is not supported yet.
-          bin: bdk-reserves-web
-          # (required) GitHub token for uploading assets to GitHub Releases.
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  heroku-deploy:
-    runs-on: ubuntu-latest
+    needs: create-release
     steps:
       - uses: actions/checkout@v4
       - name: Set default toolchain
-        run: rustup default 1.72.0
-      - name: Build
-        run: cargo build --release
-      - name: make dir
-        run: mkdir app
-      - name: copy
-        run: cp ./target/release/bdk-reserves-web ./app/
-      - uses: akhileshns/heroku-deploy@v3.12.12
-        with:
-          # key from repository secrets
-          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
-          # name of the Heroku app
-          heroku_app_name: "bdk-reserves-web"
-          # app directory
-          appdir: "./app"
-          # start command
-          procfile: "web: ./bdk-reserves-web"
-          # email from which the app is uploaded
-          heroku_email: "richi+heroku@ulrichard.ch"
-          # buildpack is like environment used to run the app
-          buildpack: "https://github.com/ph3nx/heroku-binary-buildpack.git"
+        run: rustup default 1.97.1
+      - name: Add the wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Build the static site
+        run: make build
+      - name: Package it
+        run: tar czf bdk-reserves-web-${{ github.ref_name }}.tar.gz -C dist .
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} bdk-reserves-web-*.tar.gz

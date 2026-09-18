@@ -1,1 +1,15 @@
+# Build output
 /target
+/dist
+
+# Toolchains build.sh fetches (wasi-sdk, wasm-bindgen)
+/.tools
+
+# Written by the CI workflow when its steps are run locally
+/.cache_key
+
+# Editor and OS noise
+.DS_Store
+*.swp
+/.idea/
+/.vscode/
