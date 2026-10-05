@@ -23,7 +23,7 @@ const ADDRESS = example.addresses[0]
 const MESSAGE = example.message
 const PSBT = fs.readFileSync(path.join(EXAMPLE, example.proof_psbt), 'utf8').trim()
 const TIP = 2000000
-const EXPECTED_SATS = 53865580
+const EXPECTED_SATS = 922739
 const DEPTH_BELOW_TIP = 100
 // The including block is the first confirmation, hence the +1.
 const DEPTH = DEPTH_BELOW_TIP + 1
@@ -115,7 +115,7 @@ server.listen(0, '127.0.0.1', async () => {
     check('the network is detected', proof.network === 'testnet', proof.network)
     check('the chain tip is reported', proof.tip_height === TIP, String(proof.tip_height))
     check('every outpoint is counted', proof.utxos === outpoints.length, String(proof.utxos))
-    check('transaction fetches are deduped', served.tx === 12, `${served.tx} requests for 18 utxos`)
+    check('transaction fetches are deduped', served.tx === 16, `${served.tx} requests for 18 utxos`)
 
     await rejects('a proof is bound to its message', { message: 'another message' }, 'ChallengeInputMismatch')
 
@@ -143,11 +143,11 @@ server.listen(0, '127.0.0.1', async () => {
 
     // The amounts come from the transactions rather than the UTXO listing, so a
     // server that swaps one in must be caught rather than believed.
-    const [first, second] = Object.keys(transactions)
-    const original = transactions[first]
-    transactions[first] = transactions[second]
+    const [first, second, third] = Object.keys(transactions)
+    const original = transactions[second]
+    transactions[second] = transactions[third]
     await rejects('a substituted transaction is caught', {}, 'txid is')
-    transactions[first] = original
+    transactions[second] = original
 
     const again = await verify()
     check('a repeat run is stable', again.spendable === proof.spendable, `${again.spendable} sats`)

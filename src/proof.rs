@@ -101,7 +101,7 @@ mod tests {
 
     // A real proof, the same one the HTTP service used as its test fixture.
     const PROOF_PSBT: &str = include_str!("../web/example/proof.psbt.base64");
-    const MESSAGE: &str = "Stored in SEBA Bank AG cold storage";
+    const MESSAGE: &str = "Stored in AMINA Bank AG cold storage";
     const ADDRESS: &str = "2Mtkk3kjyN8hgdGXPuJCNnwS3BBY4K2frhY";
 
     #[test]
