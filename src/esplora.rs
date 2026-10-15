@@ -5,15 +5,18 @@
 //! so the lookups can run in the tab with no server of our own in between.
 
 use bdk_wallet::bitcoin::{
-    consensus::deserialize, hashes::Hash, Address, OutPoint, Transaction, Txid,
+    block::Version, consensus::deserialize, hashes::Hash, psbt::Psbt, BlockHash, CompactTarget,
+    OutPoint, Transaction, TxMerkleNode, TxOut, Txid, Weight,
 };
+use chrono::{DateTime, Utc};
 use futures_util::{stream, StreamExt};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::str::FromStr;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Request, RequestInit, Response};
+
+pub type BlockHeight = u32;
 
 /// Look up `fetch` on the global object rather than going through `Window`, so
 /// the same module works in a page, in a worker, and under Node.
@@ -39,17 +42,73 @@ pub struct Esplora {
     base_url: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct Utxo {
-    txid: String,
-    vout: u32,
-    status: UtxoStatus,
+// The status of a [`TxOut`].
+#[allow(dead_code)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct OutputStatus {
+    /// Whether the [`TxOut`] is spent.
+    pub spent: bool,
+    /// The [`Txid`] of the [`Transaction`] that spent this [`TxOut`].
+    pub txid: Option<Txid>,
+    /// The input index of this [`TxOut`] in the [`Transaction`] that spent it.
+    pub vin: Option<u64>,
+    /// Information about the [`Transaction`] that spent this [`TxOut`].
+    pub status: Option<TxStatus>,
 }
 
-#[derive(Debug, Deserialize)]
-struct UtxoStatus {
-    confirmed: bool,
-    block_height: Option<usize>,
+/// The confirmation status of a [`Transaction`].
+#[allow(dead_code)]
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct TxStatus {
+    /// Whether the [`Transaction`] is confirmed or not.
+    pub confirmed: bool,
+    /// The block height that confirmed the [`Transaction`].
+    pub block_height: Option<BlockHeight>,
+    /// The [`BlockHash`] of the block that confirmed the [`Transaction`].
+    ///
+    /// `None` if the [`Transaction`] was confirmed by the genesis block.
+    pub block_hash: Option<BlockHash>,
+    /// The UNIX timestamp of the block that confirmed the [`Transaction`], as claimed by the
+    /// miner.
+    pub block_time: Option<u64>,
+}
+
+/// A summary of a [`Block`].
+///
+/// Contains additional metadata about a [`Block`], but not the whole [`Block`].
+///
+/// For the complete [`Block`] contents, use the `get_block_by_hash` client method.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Deserialize)]
+pub struct BlockInfo {
+    /// The [`BlockHash`] of this [`Block`].
+    pub id: BlockHash,
+    /// The block height of this [`Block`].
+    pub height: u32,
+    /// The version of this [`Block`].
+    pub version: Version,
+    /// The UNIX timestamp of this [`Block`], as claimed by the miner.
+    pub timestamp: u64,
+    /// The [`Transaction`] count for this [`Block`].
+    pub tx_count: u64,
+    /// The size of this [`Block`], in bytes.
+    pub size: usize,
+    /// The [`Weight`] of this [`Block`].
+    pub weight: Weight,
+    /// The Merkle root of this [`Block`].
+    pub merkle_root: TxMerkleNode,
+    /// The [`BlockHash`] of the previous [`Block`].
+    ///
+    /// `None` for the genesis block.
+    pub previousblockhash: Option<BlockHash>,
+    /// The Median Time Past value for this [`Block`].
+    pub mediantime: u64,
+    /// This [`Block`]'s nonce.
+    pub nonce: u32,
+    /// The [`Block`]'s `bits` value, encoded as a [`CompactTarget`].
+    pub bits: CompactTarget,
+    /// The [`Block`]'s difficulty target value.
+    pub difficulty: f64,
 }
 
 impl Esplora {
@@ -94,44 +153,23 @@ impl Esplora {
             .ok_or_else(|| format!("Response from {} was not text", url))
     }
 
-    pub async fn tip_height(&self) -> Result<usize, String> {
+    pub async fn tip_height(&self) -> Result<BlockHeight, String> {
         let body = self.get("/blocks/tip/height").await?;
         body.trim()
             .parse()
             .map_err(|e| format!("Could not read the chain tip height {:?}: {:?}", body, e))
     }
 
-    /// Fetch the confirmed, sufficiently deep UTXOs of `address`.
-    ///
-    /// Only the outpoints are taken from this response. The amounts come from
-    /// the transactions themselves in `outpoints_for_addresses`, so a server
-    /// that misreports a value cannot inflate the total.
-    async fn confirmed_outpoints(
-        &self,
-        address: &Address,
-        max_confirmation_height: usize,
-    ) -> Result<Vec<OutPoint>, String> {
-        let body = self.get(&format!("/address/{}/utxo", address)).await?;
-        let utxos: Vec<Utxo> = serde_json::from_str(&body)
-            .map_err(|e| format!("Could not read the UTXOs of {}: {:?}", address, e))?;
-
-        utxos
-            .into_iter()
-            .filter(|utxo| {
-                utxo.status.confirmed
-                    && utxo
-                        .status
-                        .block_height
-                        .is_some_and(|height| height > 0 && height <= max_confirmation_height)
-            })
-            .map(|utxo| {
-                Ok(OutPoint {
-                    txid: Txid::from_str(&utxo.txid)
-                        .map_err(|e| format!("Invalid txid {}: {:?}", utxo.txid, e))?,
-                    vout: utxo.vout,
-                })
-            })
-            .collect()
+    /// returns the block height, where the transaction confirmed
+    async fn tx_height(&self, txid: &Txid) -> Result<Option<BlockHeight>, String> {
+        let body = self.get(&format!("/tx/{}/status", txid)).await?;
+        let stat: TxStatus = serde_json::from_str(&body)
+            .map_err(|e| format!("Could not read the tx status of {}: {:?}", txid, e))?;
+        Ok(if !stat.confirmed {
+            None
+        } else {
+            stat.block_height
+        })
     }
 
     async fn transaction(&self, txid: Txid) -> Result<Transaction, String> {
@@ -154,57 +192,149 @@ impl Esplora {
         Ok(tx)
     }
 
+    /// returns the block height, just before the output was spent
+    /// if it was spent but not confirmed, returning the current tip
+    /// None, if it is unspent
+    async fn output_status(
+        &self,
+        out: &OutPoint,
+        tip_height: BlockHeight,
+    ) -> Result<Option<BlockHeight>, String> {
+        let body = self
+            .get(&format!("/tx/{}/outspend/{}", out.txid, out.vout))
+            .await?;
+        let stat: OutputStatus = serde_json::from_str(&body).map_err(|e| {
+            format!(
+                "Could not read the output status of {}/{}: {:?}",
+                out.txid, out.vout, e
+            )
+        })?;
+
+        if stat.spent {
+            let spent_state = stat.status.ok_or(format!(
+                "Missing confirmation status for {}/{}",
+                out.txid, out.vout
+            ))?;
+            if spent_state.confirmed {
+                let confirmed_height = spent_state.block_height.ok_or(format!(
+                    "Missing confirmation height for {}/{}",
+                    out.txid, out.vout
+                ))?;
+                return Ok(Some(confirmed_height - 1));
+            } else {
+                return Ok(Some(tip_height));
+            }
+        }
+
+        Ok(None)
+    }
+
+    async fn block_infos(&self, height: BlockHeight) -> Result<BlockInfo, String> {
+        let body = self.get(&format!("/blocks/{}", height)).await?;
+        let blocks: Vec<BlockInfo> = serde_json::from_str(&body)
+            .map_err(|e| format!("Could not read the block infos: {:?}", e))?;
+
+        Ok(blocks[0].clone())
+    }
+
     /// Collect every spendable UTXO across `addresses`, paired with the output
     /// it refers to, ready to hand to `verify_proof`.
-    pub async fn outpoints_for_addresses(
+    pub async fn outpoints_for_psbt(
         &self,
-        addresses: &[Address],
-        max_confirmation_height: usize,
-    ) -> Result<Vec<(OutPoint, bdk_wallet::bitcoin::TxOut)>, String> {
-        let per_address: Vec<Result<Vec<OutPoint>, String>> = stream::iter(addresses)
-            .map(|address| self.confirmed_outpoints(address, max_confirmation_height))
-            .buffer_unordered(MAX_CONCURRENT_REQUESTS)
-            .collect()
-            .await;
-
-        let outpoints: Vec<OutPoint> = per_address
-            .into_iter()
-            .collect::<Result<Vec<_>, String>>()?
-            .concat();
+        psbt: &Psbt,
+        max_confirmation_height: BlockHeight,
+    ) -> Result<(Vec<(OutPoint, TxOut)>, Option<BlockHeight>), String> {
+        let tip_height = self.tip_height().await?;
 
         // Several outpoints often share a transaction, so fetch each one once.
-        let mut wanted: Vec<Txid> = outpoints.iter().map(|outpoint| outpoint.txid).collect();
+        let mut wanted = psbt
+            .unsigned_tx
+            .input
+            .iter()
+            .skip(1)
+            .map(|txin| txin.previous_output.txid)
+            .collect::<Vec<_>>();
         wanted.sort_unstable_by_key(|txid| txid.to_byte_array());
         wanted.dedup();
-
-        let fetched: Vec<Result<(Txid, Transaction), String>> = stream::iter(wanted)
-            .map(|txid| async move { self.transaction(txid).await.map(|tx| (txid, tx)) })
-            .buffer_unordered(MAX_CONCURRENT_REQUESTS)
-            .collect()
+        let fetched = stream::iter(wanted)
+            .map(|txid| async move {
+                let tx = self.transaction(txid).await?;
+                let tx_height = self.tx_height(&txid).await?.unwrap_or(tip_height);
+                Ok((txid, (tx, tx_height)))
+            })
+            .buffer_unordered(MAX_CONCURRENT_REQUESTS / 2)
+            .collect::<Vec<Result<(Txid, (Transaction, BlockHeight)), String>>>()
             .await;
 
-        let transactions: HashMap<Txid, Transaction> =
-            fetched.into_iter().collect::<Result<_, String>>()?;
-
-        outpoints
+        let transactions = fetched
             .into_iter()
-            .map(|outpoint| {
-                let tx = transactions
-                    .get(&outpoint.txid)
-                    .ok_or_else(|| format!("Missing transaction {}", outpoint.txid))?;
+            .collect::<Result<HashMap<Txid, (Transaction, BlockHeight)>, String>>()?;
+
+        // then check if and when the UTXOs were spent
+        let spent_heights = stream::iter(&psbt.unsigned_tx.input)
+            .skip(1)
+            .map(|txin| async move { self.output_status(&txin.previous_output, tip_height).await })
+            .buffer_unordered(MAX_CONCURRENT_REQUESTS)
+            .collect::<Vec<Result<Option<BlockHeight>, String>>>()
+            .await;
+        let spent_heights = spent_heights.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let unspent_height = spent_heights.iter().fold(None, |acc, spent_height| {
+            let acc = acc.map(|sh: BlockHeight| if sh > 1 { sh - 1 } else { sh });
+            match (spent_height, acc) {
+                (Some(spent_height), Some(acc)) => Some(std::cmp::min(*spent_height, acc)),
+                (None, Some(acc)) => Some(acc),
+                (Some(spent_height), None) => Some(*spent_height),
+                (None, None) => None,
+            }
+        });
+
+        let augmented_prevouts = psbt
+            .unsigned_tx
+            .input
+            .iter()
+            .skip(1)
+            .map(|txin| {
+                let (tx, tx_height) = transactions
+                    .get(&txin.previous_output.txid)
+                    .ok_or(format!("Missing transaction {}", txin.previous_output.txid))?;
+                Ok::<_, String>((txin, tx, tx_height))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let utxos = augmented_prevouts
+            .into_iter()
+            .filter(|(_txin, _tx, tx_height)| **tx_height <= max_confirmation_height)
+            .map(|(txin, tx, _tx_height)| {
                 let txout = tx
                     .output
-                    .get(outpoint.vout as usize)
+                    .get(txin.previous_output.vout as usize)
                     .ok_or_else(|| {
                         format!(
                             "Transaction {} has no output {}",
-                            outpoint.txid, outpoint.vout
+                            txin.previous_output.txid, txin.previous_output.vout
                         )
                     })?
                     .clone();
-                Ok((outpoint, txout))
+
+                Ok::<_, String>((txin.previous_output, txout))
             })
-            .collect()
+            .collect::<Result<_, _>>()?;
+
+        Ok((utxos, unspent_height))
+    }
+
+    /// Returns a timestamp when the miner reported a block to be mined
+    pub async fn time_for_block(&self, height: BlockHeight) -> Result<DateTime<Utc>, String> {
+        let blockinfo = self.block_infos(height).await?;
+        let timestamp = DateTime::from_timestamp(
+            blockinfo
+                .timestamp
+                .try_into()
+                .map_err(|e| format!("Failed to convert timestamp: {}", e))?,
+            0,
+        )
+        .ok_or(format!("Failed to construct timestamp"))?;
+
+        Ok(timestamp)
     }
 }
 
