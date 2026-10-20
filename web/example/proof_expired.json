@@ -1,0 +1,7 @@
+{
+  "message": "Stored in SEBA Bank AG cold storage",
+  "proof_psbt": "proof_expired.psbt.base64",
+  "confirmations": 3,
+  "note": "A real testnet proof of 0.5386558 BTC over 18 UTXOs. Those UTXOs have since been spent, so verifying it reports it as expired.",
+  "esplora": "https://blockstream.info/testnet/api"
+}

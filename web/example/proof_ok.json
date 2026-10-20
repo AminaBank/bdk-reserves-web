@@ -1,0 +1,7 @@
+{
+  "message": "Stored in AMINA Bank AG cold storage",
+  "proof_psbt": "proof_ok.psbt.base64",
+  "confirmations": 3,
+  "note": "A real live testnet proof of 0.00922739 BTC over 20 UTXOs.",
+  "esplora": "https://blockstream.info/testnet/api"
+}
