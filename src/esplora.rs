@@ -5,8 +5,7 @@
 //! so the lookups can run in the tab with no server of our own in between.
 
 use bdk_wallet::bitcoin::{
-    block::Version, consensus::deserialize, hashes::Hash, psbt::Psbt, BlockHash, CompactTarget,
-    OutPoint, Transaction, TxMerkleNode, TxOut, Txid, Weight,
+    consensus::deserialize, hashes::Hash, psbt::Psbt, BlockHash, OutPoint, Transaction, TxOut, Txid,
 };
 use chrono::{DateTime, Utc};
 use futures_util::{stream, StreamExt};
@@ -43,7 +42,6 @@ pub struct Esplora {
 }
 
 // The status of a [`TxOut`].
-#[allow(dead_code)]
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct OutputStatus {
     /// Whether the [`TxOut`] is spent.
@@ -57,7 +55,6 @@ pub struct OutputStatus {
 }
 
 /// The confirmation status of a [`Transaction`].
-#[allow(dead_code)]
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct TxStatus {
     /// Whether the [`Transaction`] is confirmed or not.
@@ -74,41 +71,12 @@ pub struct TxStatus {
 }
 
 /// A summary of a [`Block`].
-///
 /// Contains additional metadata about a [`Block`], but not the whole [`Block`].
-///
-/// For the complete [`Block`] contents, use the `get_block_by_hash` client method.
-#[allow(dead_code)]
+/// Most fields omitted. Full spec on https://docs.rs/esplora-client/latest/esplora_client/api/struct.BlockInfo.html
 #[derive(Debug, Clone, Deserialize)]
 pub struct BlockInfo {
-    /// The [`BlockHash`] of this [`Block`].
-    pub id: BlockHash,
-    /// The block height of this [`Block`].
-    pub height: u32,
-    /// The version of this [`Block`].
-    pub version: Version,
     /// The UNIX timestamp of this [`Block`], as claimed by the miner.
     pub timestamp: u64,
-    /// The [`Transaction`] count for this [`Block`].
-    pub tx_count: u64,
-    /// The size of this [`Block`], in bytes.
-    pub size: usize,
-    /// The [`Weight`] of this [`Block`].
-    pub weight: Weight,
-    /// The Merkle root of this [`Block`].
-    pub merkle_root: TxMerkleNode,
-    /// The [`BlockHash`] of the previous [`Block`].
-    ///
-    /// `None` for the genesis block.
-    pub previousblockhash: Option<BlockHash>,
-    /// The Median Time Past value for this [`Block`].
-    pub mediantime: u64,
-    /// This [`Block`]'s nonce.
-    pub nonce: u32,
-    /// The [`Block`]'s `bits` value, encoded as a [`CompactTarget`].
-    pub bits: CompactTarget,
-    /// The [`Block`]'s difficulty target value.
-    pub difficulty: f64,
 }
 
 impl Esplora {
