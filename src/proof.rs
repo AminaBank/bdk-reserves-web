@@ -76,7 +76,7 @@ pub fn parse_addresses(addresses: &[String], network: Network) -> Result<Vec<Add
 /// A UTXO mined in block `h` has `tip - h + 1` confirmations, the block it
 /// landed in being the first, so asking for at least `confirmations` of them
 /// means `h <= tip + 1 - confirmations`.
-pub fn confirmation_cutoff(tip_height: usize, confirmations: usize) -> Result<usize, String> {
+pub fn confirmation_cutoff(tip_height: u32, confirmations: u32) -> Result<u32, String> {
     if confirmations > tip_height {
         return Err(format!(
             "The chain is only {} blocks long, which cannot satisfy {} confirmations",
@@ -100,7 +100,7 @@ mod tests {
     use super::*;
 
     // A real proof, the same one the HTTP service used as its test fixture.
-    const PROOF_PSBT: &str = include_str!("../web/example/proof.psbt.base64");
+    const PROOF_PSBT: &str = include_str!("../web/example/proof_ok.psbt.base64");
     const MESSAGE: &str = "Stored in AMINA Bank AG cold storage";
     const ADDRESS: &str = "2Mtkk3kjyN8hgdGXPuJCNnwS3BBY4K2frhY";
 

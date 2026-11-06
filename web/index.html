@@ -20,6 +20,8 @@
     --err-fg: #a40e26;
     --info-bg: #ddf4ff;
     --info-fg: #0a3069;
+    --expired-bg: #fafb04;
+    --expired-fg: #fa4b04;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -35,6 +37,8 @@
       --err-fg: #ff7b72;
       --info-bg: #121d2f;
       --info-fg: #79c0ff;
+      --expired-bg: #fafb04;
+      --expired-fg: #fa4b04;
     }
   }
   * { box-sizing: border-box; }
@@ -83,6 +87,7 @@
   #result { margin-top: 1.5rem; border-radius: 8px; padding: 1rem; display: none; }
   #result.ok { display: block; background: var(--ok-bg); color: var(--ok-fg); }
   #result.err { display: block; background: var(--err-bg); color: var(--err-fg); }
+  #result.expired { display: block; background: var(--expired-bg); color: var(--expired-fg); }
   #result.info { display: block; background: var(--info-bg); color: var(--info-fg); }
   #result h2 { margin: 0 0 .3rem; font-size: 1.1rem; }
   .amount { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -103,10 +108,6 @@
     <fieldset>
       <legend>Proof</legend>
       <div class="field">
-        <label for="addresses">Addresses <span class="hint">one per line, or comma separated</span></label>
-        <textarea id="addresses" rows="3" spellcheck="false" required></textarea>
-      </div>
-      <div class="field">
         <label for="message">Message</label>
         <textarea id="message" rows="2" required></textarea>
       </div>
@@ -124,8 +125,12 @@
           <input id="confirmations" type="number" min="0" max="1000" value="3">
         </div>
         <div class="field">
-          <label for="esplora">Esplora server <span class="hint">optional</span></label>
-          <input id="esplora" type="url" placeholder="chosen from the address network" spellcheck="false">
+          <label for="esplora">Esplora server</label>
+          <input id="esplora" type="url" placeholder="choose or edit" spellcheck="false" list="serverOptions" value="https://blockstream.info/api">
+          <datalist id="serverOptions">
+            <option value="https://blockstream.info/api"></option>
+            <option value="https://blockstream.info/testnet/api"></option>
+          </datalist>
         </div>
       </div>
     </fieldset>

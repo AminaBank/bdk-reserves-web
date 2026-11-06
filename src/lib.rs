@@ -15,21 +15,22 @@ mod esplora;
 
 #[cfg(target_arch = "wasm32")]
 mod bindings {
-    use crate::{esplora::Esplora, proof};
-    use bdk_wallet::bitcoin::Network;
+    use crate::{
+        esplora::{BlockHeight, Esplora},
+        proof,
+    };
     use serde::{Deserialize, Serialize};
     use wasm_bindgen::prelude::*;
 
     /// The depth the HTTP service asked for, and a sensible default here too.
-    const DEFAULT_CONFIRMATIONS: usize = 3;
+    const DEFAULT_CONFIRMATIONS: BlockHeight = 3;
 
     #[derive(Debug, Deserialize)]
     pub struct VerifyRequest {
-        addresses: Vec<String>,
         message: String,
         proof_psbt: String,
         #[serde(default)]
-        confirmations: Option<usize>,
+        confirmations: Option<BlockHeight>,
         #[serde(default)]
         esplora_url: Option<String>,
     }
@@ -38,31 +39,15 @@ mod bindings {
     pub struct VerifyResponse {
         /// Total value the proof demonstrates control of, in satoshis.
         spendable: u64,
-        network: String,
-        tip_height: usize,
+        expired: bool,
+        valid_until: String,
         /// How many UTXOs were deep enough to count towards the total.
         utxos: usize,
-        esplora_url: String,
     }
 
     #[wasm_bindgen(start)]
     pub fn start() {
         console_error_panic_hook::set_once();
-    }
-
-    /// Default Esplora endpoint for a network, used when the caller does not
-    /// name one. These are Blockstream's public servers, which send CORS
-    /// headers; any other Esplora instance works just as well.
-    fn default_esplora_url(network: Network) -> Result<&'static str, String> {
-        match network {
-            Network::Bitcoin => Ok("https://blockstream.info/api"),
-            Network::Testnet => Ok("https://blockstream.info/testnet/api"),
-            Network::Signet => Ok("https://blockstream.info/signet/api"),
-            other => Err(format!(
-                "No public Esplora server is known for {}, please give one explicitly",
-                other
-            )),
-        }
     }
 
     /// Verify a proof of reserves.
@@ -78,37 +63,36 @@ mod bindings {
         let request: VerifyRequest = serde_wasm_bindgen::from_value(request)
             .map_err(|e| format!("Could not read the request: {}", e))?;
 
-        let addresses: Vec<String> = request
-            .addresses
-            .iter()
-            .map(|address| address.trim().to_string())
-            .filter(|address| !address.is_empty())
-            .collect();
-
         let psbt = proof::decode_psbt(&request.proof_psbt)?;
-        let network = proof::detect_network(&addresses)?;
-        let parsed = proof::parse_addresses(&addresses, network)?;
 
-        let esplora_url = match request.esplora_url.as_deref().map(str::trim) {
-            Some(url) if !url.is_empty() => url.to_string(),
-            _ => default_esplora_url(network)?.to_string(),
-        };
+        let esplora_url = request
+            .esplora_url
+            .as_deref()
+            .map(str::trim)
+            .ok_or("Esplora server is missing")?;
         let esplora = Esplora::new(&esplora_url);
 
         let confirmations = request.confirmations.unwrap_or(DEFAULT_CONFIRMATIONS);
         let tip_height = esplora.tip_height().await?;
         let cutoff = proof::confirmation_cutoff(tip_height, confirmations)?;
 
-        let outpoints = esplora.outpoints_for_addresses(&parsed, cutoff).await?;
+        let (outpoints, unspent_height) = esplora.outpoints_for_psbt(&psbt, cutoff).await?;
+        let valid_until = esplora
+            .time_for_block(if let Some(unspent_height) = unspent_height {
+                unspent_height
+            } else {
+                tip_height
+            })
+            .await?;
+
         let utxos = outpoints.len();
         let spendable = proof::verify(&psbt, &request.message, outpoints)?;
 
         serde_wasm_bindgen::to_value(&VerifyResponse {
             spendable: spendable.to_sat(),
-            network: network.to_string(),
-            tip_height,
+            expired: unspent_height.is_some(),
+            valid_until: format!("{:?}", valid_until),
             utxos,
-            esplora_url,
         })
         .map_err(|e| format!("Could not build the response: {}", e))
     }

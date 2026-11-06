@@ -68,27 +68,18 @@ function explain(message) {
   return null
 }
 
-// Addresses are accepted one per line or comma separated, whichever is handier
-// to paste.
-function parseAddresses(raw) {
-  return raw
-    .split(/[\s,]+/)
-    .map((address) => address.trim())
-    .filter(Boolean)
-}
-
 // The example proof is fetched rather than inlined, because the PSBT alone is
 // 28kB of base64 and most visitors never ask for it.
 example.addEventListener('click', async () => {
   example.disabled = true
   try {
-    const meta = await fetch('example/proof.json').then((response) => response.json())
+    const meta = await fetch('example/proof_expired.json').then((response) => response.json())
     const psbt = await fetch(`example/${meta.proof_psbt}`).then((response) => response.text())
 
-    document.getElementById('addresses').value = meta.addresses.join('\n')
     document.getElementById('message').value = meta.message
     document.getElementById('psbt').value = psbt.trim()
     document.getElementById('confirmations').value = meta.confirmations
+    document.getElementById('esplora').value = meta.esplora
 
     loadedExample = meta
     show('info', `<h2>Example loaded</h2><p class="meta">${escape(meta.note)}</p>`)
@@ -106,7 +97,6 @@ form.addEventListener('submit', async (event) => {
   show('', '')
 
   const request = {
-    addresses: parseAddresses(document.getElementById('addresses').value),
     message: document.getElementById('message').value,
     proof_psbt: document.getElementById('psbt').value,
     // An emptied field means "the default", not zero confirmations.
@@ -119,14 +109,13 @@ form.addEventListener('submit', async (event) => {
   try {
     const proof = await verifyProofOfReserves(request)
     show(
-      'ok',
-      `<h2>Proof verified</h2>
-       <div class="amount">${formatBtc(proof.spendable)} BTC</div>
+      proof.expired ? 'expired' : 'ok',
+      `<h2>Proof ${proof.expired ? 'expired' : 'verified'}</h2>
+       <div class="amount">${formatBtc(proof.spendable)} ${document.getElementById('esplora').value.trim() == 'https://blockstream.info/testnet/api' ? 'T' : ''}BTC</div>
        <p class="meta">
          ${proof.spendable.toLocaleString('en-US')} sats across ${proof.utxos}
-         UTXO${proof.utxos === 1 ? '' : 's'} on ${escape(proof.network)},
-         confirmed as of block ${proof.tip_height.toLocaleString('en-US')}.<br>
-         Looked up via ${escape(proof.esplora_url)}
+         UTXO${proof.utxos === 1 ? '' : 's'}.<br>
+         The proof was valid at least until ${proof.valid_until}.
        </p>`,
     )
   } catch (error) {
